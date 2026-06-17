@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trip Planner</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f5f7fa;
+      color: #333;
+    }
+
+    header {
+      background: #2d6a4f;
+      color: white;
+      padding: 1.2rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h1 { font-size: 1.5rem; }
+
+    #logout-btn {
+      background: transparent;
+      border: 1px solid white;
+      color: white;
+      padding: 0.4rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    /* AUTH */
+    #auth-section {
+      max-width: 400px;
+      margin: 4rem auto;
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+    }
+
+    #auth-section h2 { margin-bottom: 1.2rem; color: #2d6a4f; }
+
+    #auth-section input {
+      width: 100%;
+      padding: 0.7rem 1rem;
+      margin-bottom: 1rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+
+    #auth-section button {
+      width: 100%;
+      padding: 0.75rem;
+      background: #2d6a4f;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      margin-bottom: 0.5rem;
+    }
+
+    #auth-section button.secondary {
+      background: transparent;
+      color: #2d6a4f;
+      border: 1px solid #2d6a4f;
+    }
+
+    #auth-error { color: red; font-size: 0.85rem; margin-top: 0.5rem; }
+
+    /* APP */
+    #app-section { display: none; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+
+    #add-trip-form {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      margin-bottom: 2rem;
+    }
+
+    #add-trip-form h2 { margin-bottom: 1rem; color: #2d6a4f; }
+
+    .form-row {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .form-row input {
+      flex: 1;
+      min-width: 150px;
+      padding: 0.7rem 1rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+
+    .form-row button {
+      padding: 0.7rem 1.5rem;
+      background: #2d6a4f;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+
+    #trips-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1.2rem;
+    }
+
+    .trip-card {
+      background: white;
+      border-radius: 12px;
+      padding: 1.4rem;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .trip-card h3 { font-size: 1.2rem; color: #2d6a4f; }
+    .trip-card .dates { font-size: 0.85rem; color: #777; }
+    .trip-card .destination { font-size: 0.95rem; }
+
+    .trip-card .card-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .trip-card .card-actions button {
+      flex: 1;
+      padding: 0.5rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    .btn-view { background: #2d6a4f; color: white; }
+    .btn-delete { background: #fee2e2; color: #b91c1c; }
+
+    #no-trips {
+      text-align: center;
+      color: #999;
+      margin-top: 2rem;
+      font-size: 1rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🌍 Trip Planner</h1>
+  <button id="logout-btn" style="display:none">Log out</button>
+</header>
+
+<!-- AUTH -->
+<div id="auth-section">
+  <h2>Welcome to Trip Planner</h2>
+  <button id="google-btn" style="display:flex;align-items:center;justify-content:center;gap:0.6rem;">
+    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" /> Sign in with Google
+  </button>
+  <p id="auth-error"></p>
+</div>
+
+<!-- APP -->
+<div id="app-section">
+  <div id="add-trip-form">
+    <h2>Add a Trip</h2>
+    <div class="form-row">
+      <input type="text" id="trip-name" placeholder="Trip name (e.g. Yellowstone 2026)" />
+      <input type="text" id="trip-destination" placeholder="Destination" />
+      <input type="date" id="trip-start" />
+      <input type="date" id="trip-end" />
+      <button id="add-trip-btn">Add Trip</button>
+    </div>
+  </div>
+
+  <div id="trips-grid"></div>
+  <p id="no-trips" style="display:none">No trips yet — add one above!</p>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, where, orderBy }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAiv9ko9eelpCvxWhNZyuijktzto9GcUAQ",
+    authDomain: "trip-planner-aa.firebaseapp.com",
+    projectId: "trip-planner-aa",
+    storageBucket: "trip-planner-aa.firebasestorage.app",
+    messagingSenderId: "954996217281",
+    appId: "1:954996217281:web:63419f9e6f1835681dcb40",
+    measurementId: "G-JY599WF2S3"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // Elements
+  const authSection = document.getElementById('auth-section');
+  const appSection = document.getElementById('app-section');
+  const logoutBtn = document.getElementById('logout-btn');
+  const authError = document.getElementById('auth-error');
+  const tripsGrid = document.getElementById('trips-grid');
+  const noTrips = document.getElementById('no-trips');
+
+  // Auth state
+  onAuthStateChanged(auth, user => {
+    if (user) {
+      authSection.style.display = 'none';
+      appSection.style.display = 'block';
+      logoutBtn.style.display = 'block';
+      loadTrips(user.uid);
+    } else {
+      authSection.style.display = 'block';
+      appSection.style.display = 'none';
+      logoutBtn.style.display = 'none';
+    }
+  });
+
+  document.getElementById('google-btn').addEventListener('click', async () => {
+    authError.textContent = '';
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (e) {
+      authError.textContent = 'Sign-in failed. Please try again.';
+    }
+  });
+
+  logoutBtn.addEventListener('click', () => signOut(auth));
+
+  // Trips
+  async function loadTrips(uid) {
+    tripsGrid.innerHTML = '';
+    const q = query(collection(db, 'trips'), where('uid', '==', uid));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      noTrips.style.display = 'block';
+      return;
+    }
+
+    noTrips.style.display = 'none';
+    snapshot.forEach(docSnap => renderTripCard(docSnap.id, docSnap.data()));
+  }
+
+  function renderTripCard(id, data) {
+    const card = document.createElement('div');
+    card.className = 'trip-card';
+    card.innerHTML = `
+      <h3>${data.name}</h3>
+      <div class="destination">📍 ${data.destination}</div>
+      <div class="dates">📅 ${data.start || '—'} → ${data.end || '—'}</div>
+      <div class="card-actions">
+        <button class="btn-delete" data-id="${id}">Delete</button>
+      </div>
+    `;
+    card.querySelector('.btn-delete').addEventListener('click', () => deleteTrip(id));
+    tripsGrid.appendChild(card);
+  }
+
+  document.getElementById('add-trip-btn').addEventListener('click', async () => {
+    const user = auth.currentUser;
+    const name = document.getElementById('trip-name').value.trim();
+    const destination = document.getElementById('trip-destination').value.trim();
+    const start = document.getElementById('trip-start').value;
+    const end = document.getElementById('trip-end').value;
+
+    if (!name || !destination) return alert('Please enter a trip name and destination.');
+
+    await addDoc(collection(db, 'trips'), { uid: user.uid, name, destination, start, end, createdAt: Date.now() });
+
+    document.getElementById('trip-name').value = '';
+    document.getElementById('trip-destination').value = '';
+    document.getElementById('trip-start').value = '';
+    document.getElementById('trip-end').value = '';
+
+    loadTrips(user.uid);
+  });
+
+  async function deleteTrip(id) {
+    if (!confirm('Delete this trip?')) return;
+    await deleteDoc(doc(db, 'trips', id));
+    loadTrips(auth.currentUser.uid);
+  }
+</script>
+
+</body>
+</html>
